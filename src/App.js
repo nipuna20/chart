@@ -1,6 +1,7 @@
 import React from "react";
 import YahooFinanceChart from "./Components/YahooFinanceChart";
 import HorizontalData from "./Components/HorizontalData";
+import Chart from "./Components/Chart";
 import styled from "styled-components";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
@@ -12,6 +13,7 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<YahooFinanceChart />} />
+            <Route path="/chart" element={<Chart />} />
             <Route path="/table" element={<HorizontalData />} />
           </Routes>
         </BrowserRouter>

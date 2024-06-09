@@ -9,6 +9,7 @@
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.7.2",
     "chart.js": "^4.4.3",
+    "chartjs-chart-financial": "^0.2.1",
     "d3": "^7.9.0",
     "d3-array": "^3.2.4",
     "react": "^18.3.1",
@@ -17,6 +18,7 @@
     "react-financial-charts": "^2.0.1",
     "react-router-dom": "^6.23.1",
     "react-scripts": "^5.0.1",
+    "react-tooltip": "^5.26.4",
     "schema-utils": "^2.7.1",
     "styled-components": "^6.1.11",
     "web-vitals": "^2.1.4"

@@ -2,29 +2,15 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import styled from "styled-components";
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  Title,
-  Tooltip,
-  Legend,
-  PointElement,
-  LineElement,
-  BarElement,
-} from "chart.js";
-import { Line, Bar } from "react-chartjs-2";
-import {
-  Chart,
   ChartCanvas,
+  Chart,
+  LineSeries,
+  AreaSeries,
   BarSeries,
   CandlestickSeries,
   XAxis,
   YAxis,
   CrossHairCursor,
-  LineSeries,
-  MACDSeries,
-  RSISeries,
-  BollingerSeries,
   discontinuousTimeScaleProvider,
   sma,
   ema,
@@ -32,25 +18,27 @@ import {
   rsi,
   bollingerBand,
   OHLCTooltip,
+  MACDSeries,
+  RSISeries,
+  BollingerSeries,
+  MouseCoordinateX,
+  MouseCoordinateY,
+  EdgeIndicator,
+  ZoomButtons,
+  lastVisibleItemBasedZoomAnchor,
+  CurrentCoordinate,
+  MovingAverageTooltip,
+  SingleValueTooltip,
 } from "react-financial-charts";
-import { scaleTime } from "d3-scale";
-import * as d3 from "d3";
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  Title,
-  Tooltip,
-  Legend,
-  PointElement,
-  LineElement,
-  BarElement
-);
+import { format } from "d3-format";
+import { timeFormat } from "d3-time-format";
 
 const ChartContainer = styled.div`
   width: 100%;
-  max-width: 900px;
   margin: 0 auto;
+  padding: 10px;
+  max-width: 1300px;
+  max-height: 600px;
 `;
 
 const ControlPanel = styled.div`
@@ -61,24 +49,18 @@ const ControlPanel = styled.div`
 
 const FinanceChart = () => {
   const [chartData, setChartData] = useState(null);
-  const [candlestickData, setCandlestickData] = useState(null);
   const [error, setError] = useState(null);
   const [chartType, setChartType] = useState("line");
   const [indicators, setIndicators] = useState([]);
+  const [interval, setInterval] = useState("1d");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const response = await axios.get(
-          "http://localhost:3001/api/finance-chart"
+          `http://localhost:3001/api/finance-chart?interval=${interval}`
         );
         const data = response.data.chart.result[0];
-        const timestamps = data.timestamp.map((ts) =>
-          new Date(ts * 1000).toLocaleDateString()
-        );
-        const prices = data.indicators.quote[0].close;
-        const volumes = data.indicators.quote[0].volume;
-
         const candleData = data.timestamp.map((ts, index) => ({
           date: new Date(ts * 1000),
           open: data.indicators.quote[0].open[index],
@@ -131,37 +113,14 @@ const FinanceChart = () => {
         rsiCalc(candleData);
         bollingerCalc(candleData);
 
-        setChartData({
-          labels: timestamps,
-          datasets: [
-            {
-              label: "AAPL Stock Price",
-              data: prices,
-              borderColor: "rgba(75,192,192,1)",
-              backgroundColor: "rgba(75,192,192,0.2)",
-              fill: chartType === "area",
-              yAxisID: "y-axis-1",
-              type:
-                chartType === "line" || chartType === "area" ? "line" : "bar",
-            },
-            {
-              label: "Volume",
-              data: volumes,
-              backgroundColor: "rgba(75,192,192,0.2)",
-              yAxisID: "y-axis-2",
-              type: "bar",
-            },
-          ],
-        });
-
-        setCandlestickData(candleData);
+        setChartData(candleData);
       } catch (error) {
         setError(error.message);
       }
     };
 
     fetchData();
-  }, [chartType, indicators]); // Add chartType and indicators as dependencies to useEffect
+  }, [chartType, indicators, interval]);
 
   const handleChartTypeChange = (event) => {
     setChartType(event.target.value);
@@ -173,6 +132,10 @@ const FinanceChart = () => {
       (option) => option.value
     );
     setIndicators(selectedIndicators);
+  };
+
+  const handleIntervalChange = (event) => {
+    setInterval(event.target.value);
   };
 
   const renderIndicators = () => {
@@ -245,179 +208,90 @@ const FinanceChart = () => {
   const renderChart = () => {
     if (!chartData) return null;
 
-    const commonOptions = {
-      scales: {
-        x: {
-          type: "category",
-          position: "bottom",
-        },
-        y: {
-          beginAtZero: true,
-        },
-      },
-    };
+    const xScaleProvider = discontinuousTimeScaleProvider.inputDateAccessor(
+      (d) => d.date
+    );
+    const { data, xScale, xAccessor, displayXAccessor } =
+      xScaleProvider(chartData);
+    const xExtents = [xAccessor(data[data.length - 1]), xAccessor(data[0])];
 
-    switch (chartType) {
-      case "line":
-        return <Line data={chartData} options={commonOptions} />;
-      case "bar":
-        return <Bar data={chartData} options={commonOptions} />;
-      case "area":
-        return (
-          <Line
-            data={{
-              ...chartData,
-              datasets: chartData.datasets.map((dataset) => ({
-                ...dataset,
-                fill: true,
-              })),
-            }}
-            options={commonOptions}
+    return (
+      <ChartCanvas
+        height={400}
+        width={1300}
+        ratio={1}
+        margin={{ left: 50, right: 50, top: 10, bottom: 30 }}
+        seriesName="AAPL"
+        data={data}
+        xScale={xScale}
+        xAccessor={xAccessor}
+        displayXAccessor={displayXAccessor}
+        xExtents={xExtents}
+        zoomAnchor={lastVisibleItemBasedZoomAnchor}
+      >
+        <Chart id={1} yExtents={(d) => [d.high, d.low]}>
+          <XAxis axisAt="bottom" orient="bottom" />
+          <YAxis axisAt="left" orient="left" ticks={5} />
+          {chartType === "line" && <LineSeries yAccessor={(d) => d.close} />}
+          {chartType === "area" && <AreaSeries yAccessor={(d) => d.close} />}
+          {chartType === "bar" && <BarSeries yAccessor={(d) => d.close} />}
+          {chartType === "candle" && <CandlestickSeries />}
+          {chartType === "hollowCandle" && (
+            <CandlestickSeries
+              wickStroke={(d) => (d.close > d.open ? "#6BA583" : "#FF0000")}
+              fill={(d) => (d.close > d.open ? "none" : "#FF0000")}
+              stroke={(d) => (d.close > d.open ? "#6BA583" : "#FF0000")}
+            />
+          )}
+          {chartType === "coloredBar" && (
+            <CandlestickSeries
+              wickStroke={(d) => (d.close > d.open ? "#6BA583" : "#FF0000")}
+              fill={(d) => (d.close > d.open ? "#6BA583" : "#FF0000")}
+              stroke={(d) => (d.close > d.open ? "#6BA583" : "#FF0000")}
+            />
+          )}
+          <MouseCoordinateX
+            at="bottom"
+            orient="bottom"
+            displayFormat={timeFormat("%Y-%m-%d")}
           />
-        );
-      case "candle":
-        if (!candlestickData) return <div>Loading...</div>;
-        const xScaleProvider = discontinuousTimeScaleProvider.inputDateAccessor(
-          (d) => d.date
-        );
-        const { data, xScale, xAccessor, displayXAccessor } =
-          xScaleProvider(candlestickData);
-        const xExtents = [xAccessor(data[data.length - 1]), xAccessor(data[0])];
-        return (
-          <ChartCanvas
-            height={600}
-            width={900}
-            ratio={1}
-            margin={{ left: 50, right: 50, top: 10, bottom: 30 }}
-            seriesName="AAPL"
-            data={data}
-            xScale={xScale}
-            xAccessor={xAccessor}
-            displayXAccessor={displayXAccessor}
-            xExtents={xExtents}
-          >
-            <Chart id={1} yExtents={(d) => [d.high, d.low]}>
-              <XAxis axisAt="bottom" orient="bottom" />
-              <YAxis axisAt="left" orient="left" ticks={5} />
-              <CandlestickSeries />
-              <LineSeries yAccessor={(d) => d.close} />
-              <OHLCTooltip origin={[-40, 0]} />
-            </Chart>
-            <Chart
-              id={2}
-              yExtents={(d) => d.volume}
-              height={150}
-              origin={(w, h) => [0, h - 150]}
-            >
-              <BarSeries yAccessor={(d) => d.volume} />
-            </Chart>
-            {renderIndicators()}
-            <CrossHairCursor />
-          </ChartCanvas>
-        );
-      case "hollowCandle":
-        if (!candlestickData) return <div>Loading...</div>;
-        const hollowCandleXScaleProvider =
-          discontinuousTimeScaleProvider.inputDateAccessor((d) => d.date);
-        const {
-          data: hollowCandleData,
-          xScale: hollowCandleXScale,
-          xAccessor: hollowCandleXAccessor,
-          displayXAccessor: hollowCandleDisplayXAccessor,
-        } = hollowCandleXScaleProvider(candlestickData);
-        const hollowCandleXExtents = [
-          hollowCandleXAccessor(hollowCandleData[hollowCandleData.length - 1]),
-          hollowCandleXAccessor(hollowCandleData[0]),
-        ];
-        return (
-          <ChartCanvas
-            height={600}
-            width={900}
-            ratio={1}
-            margin={{ left: 50, right: 50, top: 10, bottom: 30 }}
-            seriesName="AAPL"
-            data={hollowCandleData}
-            xScale={hollowCandleXScale}
-            xAccessor={hollowCandleXAccessor}
-            displayXAccessor={hollowCandleDisplayXAccessor}
-            xExtents={hollowCandleXExtents}
-          >
-            <Chart id={1} yExtents={(d) => [d.high, d.low]}>
-              <XAxis axisAt="bottom" orient="bottom" />
-              <YAxis axisAt="left" orient="left" ticks={5} />
-              <CandlestickSeries
-                wickStroke={(d) => (d.close > d.open ? "#6BA583" : "#FF0000")}
-                fill={(d) => (d.close > d.open ? "none" : "#FF0000")}
-                stroke={(d) => (d.close > d.open ? "#6BA583" : "#FF0000")}
-              />
-              <LineSeries yAccessor={(d) => d.close} />
-              <OHLCTooltip origin={[-40, 0]} />
-            </Chart>
-            <Chart
-              id={2}
-              yExtents={(d) => d.volume}
-              height={150}
-              origin={(w, h) => [0, h - 150]}
-            >
-              <BarSeries yAccessor={(d) => d.volume} />
-            </Chart>
-            {renderIndicators()}
-            <CrossHairCursor />
-          </ChartCanvas>
-        );
-      case "coloredBar":
-        if (!candlestickData) return <div>Loading...</div>;
-        const coloredBarXScaleProvider =
-          discontinuousTimeScaleProvider.inputDateAccessor((d) => d.date);
-        const {
-          data: coloredBarData,
-          xScale: coloredBarXScale,
-          xAccessor: coloredBarXAccessor,
-          displayXAccessor: coloredBarDisplayXAccessor,
-        } = coloredBarXScaleProvider(candlestickData);
-        const coloredBarXExtents = [
-          coloredBarXAccessor(coloredBarData[coloredBarData.length - 1]),
-          coloredBarXAccessor(coloredBarData[0]),
-        ];
-        return (
-          <ChartCanvas
-            height={600}
-            width={900}
-            ratio={1}
-            margin={{ left: 50, right: 50, top: 10, bottom: 30 }}
-            seriesName="AAPL"
-            data={coloredBarData}
-            xScale={coloredBarXScale}
-            xAccessor={coloredBarXAccessor}
-            displayXAccessor={coloredBarDisplayXAccessor}
-            xExtents={coloredBarXExtents}
-          >
-            <Chart id={1} yExtents={(d) => [d.high, d.low]}>
-              <XAxis axisAt="bottom" orient="bottom" />
-              <YAxis axisAt="left" orient="left" ticks={5} />
-              <CandlestickSeries
-                wickStroke={(d) => (d.close > d.open ? "#6BA583" : "#FF0000")}
-                fill={(d) => (d.close > d.open ? "#6BA583" : "#FF0000")}
-                stroke={(d) => (d.close > d.open ? "#6BA583" : "#FF0000")}
-              />
-              <LineSeries yAccessor={(d) => d.close} />
-              <OHLCTooltip origin={[-40, 0]} />
-            </Chart>
-            <Chart
-              id={2}
-              yExtents={(d) => d.volume}
-              height={150}
-              origin={(w, h) => [0, h - 150]}
-            >
-              <BarSeries yAccessor={(d) => d.volume} />
-            </Chart>
-            {renderIndicators()}
-            <CrossHairCursor />
-          </ChartCanvas>
-        );
-      default:
-        return null;
-    }
+          <MouseCoordinateY
+            at="left"
+            orient="left"
+            displayFormat={format(".2f")}
+          />
+          <EdgeIndicator
+            itemType="last"
+            orient="right"
+            edgeAt="right"
+            yAccessor={(d) => d.close}
+            fill={(d) => (d.close > d.open ? "#6BA583" : "#FF0000")}
+          />
+          <ZoomButtons />
+          <OHLCTooltip origin={[-40, 0]} />
+        </Chart>
+        <Chart
+          id={2}
+          yExtents={(d) => d.volume}
+          height={150}
+          origin={(w, h) => [0, h - 150]}
+        >
+          <BarSeries yAccessor={(d) => d.volume} />
+          <MouseCoordinateX
+            at="bottom"
+            orient="bottom"
+            displayFormat={timeFormat("%Y-%m-%d")}
+          />
+          <MouseCoordinateY
+            at="left"
+            orient="left"
+            displayFormat={format(".2f")}
+          />
+        </Chart>
+        {renderIndicators()}
+        <CrossHairCursor strokeStyle="rgba(255, 0, 0, 0.8)" />
+      </ChartCanvas>
+    );
   };
 
   return (
@@ -452,6 +326,24 @@ const FinanceChart = () => {
             <option value="MACD">MACD</option>
             <option value="BollingerBands">Bollinger Bands</option>
             <option value="MovingAverage">Moving Average</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="interval">Select Time Interval: </label>
+          <select
+            id="interval"
+            value={interval}
+            onChange={handleIntervalChange}
+          >
+            <option value="1m">1 Minute</option>
+            <option value="5m">5 Minutes</option>
+            <option value="15m">15 Minutes</option>
+            <option value="30m">30 Minutes</option>
+            <option value="1h">1 Hour</option>
+            <option value="1d">1 Day</option>
+            <option value="1w">1 Week</option>
+            <option value="1mo">1 Month</option>
+            <option value="1y">1 Year</option>
           </select>
         </div>
       </ControlPanel>

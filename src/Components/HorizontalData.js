@@ -44,11 +44,11 @@ const HorizontalData = () => {
 
                 const combinedData = timestamps.map((timestamp, index) => ({
                     timestamp,
-                    price: prices[index],
+                    price: prices[index].toFixed(3),
                     volume: volumes[index],
-                    open: opens[index],
-                    high: highs[index],
-                    low: lows[index]
+                    open: opens[index].toFixed(3),
+                    high: highs[index].toFixed(3),
+                    low: lows[index].toFixed(3)
                 }));
 
                 setTableData(combinedData);
