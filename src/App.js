@@ -1,24 +1,16 @@
 import React from "react";
-import YahooFinanceChart from "./Components/YahooFinanceChart";
-import HorizontalData from "./Components/HorizontalData";
-import Chart from "./Components/Chart";
-import styled from "styled-components";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import TradingViewWidget from "./Components/TradingViewWidget";
+import HorizontalData from "./Components/Historical";
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>Stock Price Chart</h1>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<YahooFinanceChart />} />
-            <Route path="/chart" element={<Chart />} />
-            <Route path="/table" element={<HorizontalData />} />
-          </Routes>
-        </BrowserRouter>
-      </header>
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<TradingViewWidget />} />
+        <Route path="/table" element={<HorizontalData />} />
+      </Routes>
+    </Router>
   );
 }
 
