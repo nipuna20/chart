@@ -88,4 +88,5 @@ function TradingViewWidget() {
     );
 }
 
+
 export default memo(TradingViewWidget);
